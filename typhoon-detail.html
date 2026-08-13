@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>태풍정보 상세 - 모두의 바다</title>
+    <style>
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0; padding: 0;
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background: #0f172a; color: #f8fafc; min-height: 100vh;
+        }
+        .detail-header {
+            position: sticky; top: 0; background: #1e293b;
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 10;
+        }
+        .detail-header-inner {
+            max-width: 900px; margin: 0 auto;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .back-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: rgba(255,255,255,0.08); color: #e2e8f0;
+            border: 1px solid rgba(255,255,255,0.12);
+            padding: 8px 14px; border-radius: 20px;
+            font-size: 13px; font-weight: bold; cursor: pointer; text-decoration: none;
+            transition: background 0.2s;
+        }
+        .back-btn:hover { background: rgba(255,255,255,0.15); }
+        .header-title { font-size: 17px; font-weight: 800; }
+        .header-title .icon { margin-right: 6px; }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
+
+        /* [신규] 데스크톱에서 카드/폰트 확대 */
+        @media (min-width: 768px) {
+            .container { padding: 28px 20px 80px; }
+            .status-banner { padding: 22px 26px; }
+            .status-icon { font-size: 40px; }
+            .st-title { font-size: 21px; }
+            .st-sub { font-size: 14px; }
+            .typ-head { padding: 20px 24px; }
+            .typ-name { font-size: 24px; }
+            .typ-en { font-size: 14px; }
+            .typ-seq { font-size: 14px; }
+            .typ-body { padding: 22px 24px; }
+            .typ-loc { font-size: 16px; margin-bottom: 18px; }
+            .stat-grid { grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+            .stat-item { padding: 16px 12px; }
+            .stat-label { font-size: 12px; }
+            .stat-val { font-size: 20px; }
+            .typ-rem { font-size: 14px; padding: 16px 18px; }
+            .typ-other { font-size: 13px; }
+        }
+
+        .status-banner {
+            border-radius: 14px; padding: 18px 20px; margin-bottom: 20px;
+            display: flex; align-items: center; gap: 14px;
+        }
+        .status-banner.active { background: rgba(220,38,38,0.15); border: 1px solid rgba(239,68,68,0.4); }
+        .status-banner.none { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); }
+        .status-icon { font-size: 34px; flex-shrink: 0; }
+        .st-title { font-size: 18px; font-weight: 800; margin-bottom: 3px; }
+        .status-banner.active .st-title { color: #fca5a5; }
+        .status-banner.none .st-title { color: #34d399; }
+        .st-sub { font-size: 12px; color: #cbd5e1; }
+
+        .typ-card {
+            background: #1e293b; border-radius: 14px; overflow: hidden;
+            margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.08);
+        }
+        .typ-head {
+            padding: 16px 18px; background: linear-gradient(135deg, #7f1d1d, #991b1b);
+            display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+        }
+        .typ-seq {
+            font-size: 12px; font-weight: bold; background: rgba(255,255,255,0.2);
+            padding: 3px 10px; border-radius: 12px;
+        }
+        .typ-name { font-size: 20px; font-weight: 800; }
+        .typ-en { font-size: 12px; color: #fecaca; }
+
+        .typ-body { padding: 16px 18px; }
+        .typ-loc {
+            font-size: 14px; color: #e2e8f0; margin-bottom: 14px; line-height: 1.5;
+        }
+        .typ-loc .pin { color: #fca5a5; }
+
+        .stat-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;
+        }
+        .stat-item {
+            background: rgba(255,255,255,0.04); border-radius: 10px; padding: 12px;
+            text-align: center;
+        }
+        .stat-label { font-size: 10px; color: #94a3b8; margin-bottom: 4px; }
+        .stat-val { font-size: 16px; font-weight: 800; color: #f8fafc; }
+        .stat-val small { font-size: 11px; font-weight: normal; color: #cbd5e1; }
+
+        .typ-img-wrap { margin-top: 8px; border-radius: 10px; overflow: hidden; background: #0f172a; }
+        .typ-img-wrap img { width: 100%; display: block; }
+        .typ-img-caption { font-size: 10px; color: #64748b; text-align: center; padding: 6px; }
+
+        .typ-rem {
+            margin-top: 12px; background: rgba(59,130,246,0.1);
+            border: 1px solid rgba(59,130,246,0.3); border-radius: 10px;
+            padding: 12px 14px; font-size: 12px; color: #93c5fd; line-height: 1.6;
+        }
+        .typ-other { margin-top: 10px; font-size: 11px; color: #94a3b8; line-height: 1.5; }
+
+        .loading, .empty { text-align: center; padding: 50px 20px; color: #94a3b8; font-size: 14px; }
+        .disclaimer { font-size: 11px; color: #64748b; line-height: 1.6; margin-top: 16px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="detail-header">
+        <div class="detail-header-inner">
+            <a class="back-btn" href="index.html">◀ 지도</a>
+            <div class="header-title"><span class="icon">🌀</span>태풍정보 상세</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="content">
+            <div class="loading">⏳ 태풍 정보를 불러오는 중...</div>
+        </div>
+        <div class="disclaimer">
+            본 정보는 기상청 태풍정보를 기반으로 제공됩니다. 태풍 진로·강도는 수시로 변경되므로 최신 예보를 반드시 확인하세요.
+        </div>
+    </div>
+
+    <script>
+        const PROXY_URL = "https://script.google.com/macros/s/AKfycbxsFQE8atcqCH7mO8U8jM_sjRHW-Zulsh1JF_Ehpf7jL6q7SCxJPkmZWoHDYfLAIyYB/exec";
+
+        function fetchWithTimeout(url, ms = 12000) {
+            const c = new AbortController();
+            const t = setTimeout(() => c.abort(), ms);
+            return fetch(url, { signal: c.signal }).finally(() => clearTimeout(t));
+        }
+
+        // 진행방향 영문(약어) → 한글
+        const dirKr = {
+            N: '북', NNE: '북북동', NE: '북동', ENE: '동북동', E: '동', ESE: '동남동',
+            SE: '남동', SSE: '남남동', S: '남', SSW: '남남서', SW: '남서', WSW: '서남서',
+            W: '서', WNW: '서북서', NW: '북서', NNW: '북북서', '-': '정체'
+        };
+
+        // http 이미지를 https로 (혼합콘텐츠 차단 방지)
+        function toHttps(url) {
+            if (!url) return '';
+            return url.replace(/^http:\/\//i, 'https://');
+        }
+
+        async function loadTyphoon() {
+            const contentEl = document.getElementById('content');
+            try {
+                const res = await fetchWithTimeout(`${PROXY_URL}?action=typhoon`);
+                const json = await res.json();
+                console.log('[태풍 응답]', json);
+
+                let items = json?.response?.body?.items?.item || json?.body?.items?.item;
+                if (items && !Array.isArray(items)) items = [items];
+
+                if (!items || items.length === 0) {
+                    contentEl.innerHTML = `
+                        <div class="status-banner none">
+                            <div class="status-icon">✅</div>
+                            <div>
+                                <div class="st-title">현재 발생한 태풍 없음</div>
+                                <div class="st-sub">지금 활동 중인 태풍이 없습니다. 안전한 바다 되세요!</div>
+                            </div>
+                        </div>`;
+                    return;
+                }
+
+                let html = `
+                    <div class="status-banner active">
+                        <div class="status-icon">🌀</div>
+                        <div>
+                            <div class="st-title">현재 ${items.length}개 태풍 활동 중</div>
+                            <div class="st-sub">아래 태풍 정보를 확인하고 기상 변화에 대비하세요.</div>
+                        </div>
+                    </div>`;
+
+                items.forEach(t => {
+                    const dir = dirKr[t.typDir] || t.typDir || '-';
+                    const imgUrl = toHttps(t.img);
+                    // rem: "|" 로 구분된 여러 문장
+                    const remLines = (t.rem || '').split('|').map(s => s.trim()).filter(Boolean);
+
+                    html += `
+                        <div class="typ-card">
+                            <div class="typ-head">
+                                <span class="typ-seq">제${t.typSeq}호</span>
+                                <span class="typ-name">${t.typName || '-'}</span>
+                                <span class="typ-en">${t.typEn || ''}</span>
+                            </div>
+                            <div class="typ-body">
+                                <div class="typ-loc"><span class="pin">📍</span> ${t.typLoc || '위치 정보 없음'}</div>
+                                <div class="stat-grid">
+                                    <div class="stat-item">
+                                        <div class="stat-label">중심기압</div>
+                                        <div class="stat-val">${t.typPs ?? '-'} <small>hPa</small></div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-label">최대풍속</div>
+                                        <div class="stat-val">${t.typWs ?? '-'} <small>m/s</small></div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-label">진행방향</div>
+                                        <div class="stat-val" style="font-size:14px;">${dir}</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-label">진행속도</div>
+                                        <div class="stat-val">${t.typSp ?? '-'} <small>km/h</small></div>
+                                    </div>
+                                </div>
+                                ${imgUrl ? `
+                                    <div class="typ-img-wrap">
+                                        <img src="${imgUrl}" alt="태풍 진로도" onerror="this.parentElement.style.display='none'">
+                                        <div class="typ-img-caption">기상청 태풍 진로 예상도</div>
+                                    </div>` : ''}
+                                ${remLines.length ? `<div class="typ-rem">${remLines.map(l => '· ' + l).join('<br>')}</div>` : ''}
+                                ${t.other ? `<div class="typ-other">ℹ️ ${t.other}</div>` : ''}
+                            </div>
+                        </div>`;
+                });
+
+                contentEl.innerHTML = html;
+            } catch (err) {
+                console.error('태풍 조회 실패:', err);
+                contentEl.innerHTML = `<div class="empty">⚠️ 태풍 정보를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.</div>`;
+            }
+        }
+
+        loadTyphoon();
+    </script>
+</body>
+</html>
