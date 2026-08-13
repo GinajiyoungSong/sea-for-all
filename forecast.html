@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>24시간 시간별 예보 | 모두의 바다</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+    * { box-sizing: border-box; }
+    html, body {
+        margin: 0; padding: 0;
+        background: #0f172a;
+        font-family: 'Gowun Dodum', 'Manrope', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+        color: #e8eefb;
+        min-height: 100vh;
+        min-height: 100dvh;
+    }
+    .fc-topbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        position: sticky;
+        top: 0;
+        background: #0f172a;
+        z-index: 10;
+    }
+    .fc-back {
+        color: #94a3b8;
+        text-decoration: none;
+        font-size: 15px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        transition: background 0.2s;
+    }
+    .fc-back:hover { background: rgba(255,255,255,0.06); color: #e8eefb; }
+    .fc-topbar-title { font-size: 17px; font-weight: 800; color: #e8eefb; }
+
+    .fc-wrap { max-width: 720px; margin: 0 auto; padding: 18px 16px 40px; }
+
+    .fc-spot-header { margin-bottom: 16px; }
+    .fc-spot-name { font-size: 26px; font-weight: 800; color: #f8fafc; margin: 0 0 4px; }
+    .fc-spot-sub { font-size: 14px; color: #8ba3cc; }
+
+    .hf-card {
+        background: #0d1b33;
+        border-radius: 16px;
+        padding: 20px 18px;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    .hf-header-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; flex-wrap: wrap; gap: 4px; }
+    .hf-title { color:#e8eefb; font-size:19px; font-weight:800; }
+    .hf-updated { color:#8ba3cc; font-size:13px; }
+    .hf-location { color:#8ba3cc; font-size:14px; margin-bottom:16px; }
+
+    .hf-warning-box { background:#3a2a10; border:0.5px solid #7a5a1c; border-radius:10px; padding:12px 14px; margin-bottom:18px; }
+    .hf-warning-title { color:#f5c86a; font-size:16px; font-weight:700; margin-bottom:4px; }
+    .hf-warning-desc { color:#d6c19a; font-size:14px; line-height:1.6; }
+    .hf-warning-box.ok { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.35); }
+    .hf-warning-box.ok .hf-warning-title { color:#34d399; }
+    .hf-warning-box.ok .hf-warning-desc { color:#a7f3d0; }
+
+    .hf-legend-row { display:flex; align-items:center; gap:14px; margin-bottom:6px; flex-wrap:wrap; }
+    .hf-legend-title { color:#e8eefb; font-size:16px; font-weight:700; }
+    .hf-legend-item { display:flex; align-items:center; gap:5px; color:#9fb4d6; font-size:14px; }
+    .hf-dot { width:9px; height:9px; border-radius:2px; display:inline-block; flex-shrink: 0; }
+
+    .hf-subtitle { color:#e8eefb; font-size:16px; font-weight:700; margin:14px 0 6px; }
+
+    .hf-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-top:16px; }
+    .hf-cell { border:0.5px solid #24375a; border-radius:8px; padding:8px 2px; text-align:center; }
+    .hf-cell.now { border:1.5px solid #5da3f5; }
+    .hf-cell-hour { color:#8ba3cc; font-size:12.5px; }
+    .hf-cell.now .hf-cell-hour { color:#5da3f5; }
+    .hf-cell-wave { color:#e8eefb; font-size:15px; margin:5px 0; font-weight: 700; }
+    .hf-cell-wind { color:#8ba3cc; font-size:12.5px; }
+    .hf-cell-dot { width:7px; height:7px; border-radius:50%; margin:6px auto 0; }
+
+    .hf-footnote { color:#6d84a8; font-size:12px; margin-top:8px; text-align:right; }
+
+    /* [신규] 하단 일자별 예보 카드 */
+    .hf-daily-scroll {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+    }
+    .hf-daily-cell {
+        flex: 0 0 auto;
+        min-width: 88px;
+        border: 0.5px solid #24375a;
+        border-radius: 10px;
+        padding: 14px 8px;
+        text-align: center;
+    }
+    .hf-daily-cell.today { border: 1.5px solid #5da3f5; }
+    .hf-daily-date { color: #8ba3cc; font-size: 13px; font-weight: 700; }
+    .hf-daily-cell.today .hf-daily-date { color: #5da3f5; }
+    .hf-daily-icon { font-size: 24px; margin: 9px 0; }
+    .hf-daily-wave { color: #e8eefb; font-size: 15px; font-weight: 800; }
+    .hf-daily-wind { color: #8ba3cc; font-size: 13px; margin-top: 3px; }
+    .hf-daily-dot { width: 8px; height: 8px; border-radius: 50%; margin: 7px auto 0; }
+
+    .fc-loading, .fc-error {
+        text-align: center;
+        padding: 40px 20px;
+        color: #8ba3cc;
+        font-size: 15px;
+        line-height: 1.6;
+    }
+    .fc-error b { color: #fca5a5; display: block; margin-bottom: 6px; font-size: 16px; }
+
+    @media (min-width: 600px) {
+        .hf-grid { grid-template-columns: repeat(8, minmax(0,1fr)); }
+    }
+</style>
+</head>
+<body>
+
+    <div class="fc-topbar">
+        <a class="fc-back" href="javascript:void(0)" onclick="window.close(); if(!window.closed){history.back();}">← 지도로 돌아가기</a>
+        <span class="fc-topbar-title">24시간 시간별 예보</span>
+    </div>
+
+    <div class="fc-wrap">
+        <div class="fc-spot-header">
+            <h1 class="fc-spot-name" id="fc-spot-name">-</h1>
+            <p class="fc-spot-sub" id="fc-spot-sub">시간대별 파고·풍속을 확인하고 입수 시간대를 계획하세요.</p>
+        </div>
+
+        <div id="fc-loading" class="fc-loading">⏳ 예보 데이터를 불러오는 중...</div>
+        <div id="fc-error" class="fc-error" style="display:none;"></div>
+
+        <div class="hf-card" id="hf-card" style="display:none;">
+            <div class="hf-header-row">
+                <span class="hf-title">📈 24시간 시간별 예보</span>
+                <span class="hf-updated" id="hf-updated">-</span>
+            </div>
+            <div class="hf-location" id="hf-location">-</div>
+
+            <div class="hf-warning-box" id="hf-warning-box" style="display:none;">
+                <div class="hf-warning-title" id="hf-warning-title"></div>
+                <div class="hf-warning-desc" id="hf-warning-desc"></div>
+            </div>
+
+            <div class="hf-legend-row">
+                <span class="hf-legend-title">파고</span>
+                <span class="hf-legend-item"><span class="hf-dot" style="background:#1baf7a"></span>안전 0.7m 미만</span>
+                <span class="hf-legend-item"><span class="hf-dot" style="background:#eda100"></span>주의 0.7–1.2m</span>
+                <span class="hf-legend-item"><span class="hf-dot" style="background:#e34948"></span>위험 1.2m 이상</span>
+            </div>
+            <svg id="hf-wave-svg" width="100%" viewBox="0 0 620 148" role="img" aria-label="시간별 파고 막대그래프"></svg>
+
+            <div class="hf-subtitle">풍속</div>
+            <svg id="hf-wind-svg" width="100%" viewBox="0 0 620 128" role="img" aria-label="시간별 풍속 꺾은선그래프"></svg>
+
+            <div class="hf-grid" id="hf-grid"></div>
+            <div class="hf-footnote">칸 하단 숫자 = 풍속(m/s)</div>
+        </div>
+
+        <div class="hf-card" id="hf-daily-card" style="display:none; margin-top:16px;">
+            <div class="hf-header-row">
+                <span class="hf-title">🗓️ 일자별 예보</span>
+            </div>
+            <div class="hf-daily-scroll" id="hf-daily-scroll"></div>
+        </div>
+    </div>
+
+<script>
+    // [신규] URL 파라미터에서 스팟 정보 읽기 (오션맵 마커 클릭 패널에서 링크로 넘어옴)
+    const params = new URLSearchParams(window.location.search);
+    const spotName = params.get('name') || '';
+    const lat = parseFloat(params.get('lat'));
+    const lng = parseFloat(params.get('lng'));
+
+    document.getElementById('fc-spot-name').innerText = spotName || '스팟 정보 없음';
+
+    if (isNaN(lat) || isNaN(lng)) {
+        showError('스팟 좌표 정보가 없습니다.', '오션맵에서 마커를 클릭한 뒤 "24시간 시간별 예보 보기" 버튼으로 다시 들어와주세요.');
+    } else {
+        loadForecast(lat, lng, spotName);
+    }
+
+    function showError(title, desc) {
+        document.getElementById('fc-loading').style.display = 'none';
+        const errEl = document.getElementById('fc-error');
+        errEl.style.display = 'block';
+        errEl.innerHTML = `<b>${title}</b>${desc}`;
+    }
+
+    // 파고 구간별 색상 - 안전(초록) / 주의(주황) / 위험(빨강)
+    function waveSeverityColor(h) {
+        if (h >= 1.2) return '#e34948';
+        if (h >= 0.7) return '#eda100';
+        return '#1baf7a';
+    }
+
+    async function loadForecast(lat, lng, name) {
+        try {
+            // [신규] Open-Meteo 시간별(hourly) 예보 - 오늘 하루(24시간), 한국 시간대 기준
+            const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=wind_speed_10m&daily=weathercode,wind_speed_10m_max&wind_speed_unit=ms&forecast_days=7&timezone=Asia%2FSeoul`;
+            const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}&hourly=wave_height&daily=wave_height_max&forecast_days=7&timezone=Asia%2FSeoul`;
+
+            const [weatherRes, marineRes] = await Promise.all([
+                fetch(weatherUrl),
+                fetch(marineUrl)
+            ]);
+
+            if (!weatherRes.ok || !marineRes.ok) throw new Error('예보 API 응답 실패');
+
+            const weatherData = await weatherRes.json();
+            const marineData = await marineRes.json();
+            console.log('[시간별 풍속 예보 응답]', weatherData);
+            console.log('[시간별 파고 예보 응답]', marineData);
+
+            const windTimes = weatherData?.hourly?.time || [];
+            const windArrRaw = weatherData?.hourly?.wind_speed_10m || [];
+            const waveTimes = marineData?.hourly?.time || [];
+            const waveArrRaw = marineData?.hourly?.wave_height || [];
+
+            if (windTimes.length === 0 || waveTimes.length === 0) {
+                throw new Error('시간별 데이터가 비어있습니다');
+            }
+
+            // 두 응답의 시간 배열 길이가 다를 수 있어 짧은 쪽 기준으로 맞춤
+            const n = Math.min(windTimes.length, waveTimes.length, 24);
+            const hours = [];
+            const waveArr = [];
+            const windArr = [];
+            for (let i = 0; i < n; i++) {
+                hours.push(new Date(windTimes[i]).getHours());
+                windArr.push(windArrRaw[i] ?? 0);
+                waveArr.push(waveArrRaw[i] ?? 0);
+            }
+
+            document.getElementById('fc-loading').style.display = 'none';
+            document.getElementById('hf-card').style.display = 'block';
+            renderHourlyForecast(hours, waveArr, windArr, name);
+
+            // [신규] 일자별(daily) 예보 - 실패해도 시간별 예보 화면에는 영향 없도록 별도 try
+            try {
+                const dailyDates = weatherData?.daily?.time || [];
+                const dailyCodes = weatherData?.daily?.weathercode || [];
+                const dailyWindMax = weatherData?.daily?.wind_speed_10m_max || [];
+                const dailyWaveMax = marineData?.daily?.wave_height_max || [];
+                if (dailyDates.length > 0) {
+                    renderDailyForecast(dailyDates, dailyCodes, dailyWindMax, dailyWaveMax);
+                }
+            } catch (dailyErr) {
+                console.error('일자별 예보 렌더링 실패:', dailyErr);
+            }
+        } catch (err) {
+            console.error('예보 데이터 로드 실패:', err);
+            showError('예보 데이터를 불러오지 못했습니다.', '잠시 후 다시 시도해주세요. 문제가 반복되면 오션맵으로 돌아가 다시 접속해보세요.');
+        }
+    }
+
+    function renderHourlyForecast(hours, waveArr, windArr, spotName) {
+        const now = new Date();
+        const nowHour = now.getHours();
+        let nowIdx = hours.findIndex(h => h === nowHour);
+        if (nowIdx === -1) nowIdx = 0;
+
+        document.getElementById('hf-updated').innerText =
+            `Open-Meteo 예보 · ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} 기준`;
+        document.getElementById('hf-location').innerText =
+            spotName ? `${spotName} 인근 해상` : '선택한 위치 인근 해상';
+
+        renderWarningBox(hours, waveArr, nowIdx);
+        renderWaveBarChart(hours, waveArr, nowIdx);
+        renderWindLineChart(hours, windArr, nowIdx);
+        renderHourlyGrid(hours, waveArr, windArr, nowIdx);
+    }
+
+    function renderWarningBox(hours, waveArr, nowIdx) {
+        const warnBox = document.getElementById('hf-warning-box');
+        const dangerIdxs = [];
+        for (let i = nowIdx; i < waveArr.length; i++) {
+            if (waveArr[i] >= 1.2) dangerIdxs.push(i);
+        }
+
+        warnBox.style.display = 'block';
+        if (dangerIdxs.length > 0) {
+            const startH = hours[dangerIdxs[0]];
+            const endH = hours[dangerIdxs[dangerIdxs.length - 1]];
+            const maxW = Math.max(...dangerIdxs.map(i => waveArr[i])).toFixed(1);
+            warnBox.className = 'hf-warning-box';
+            document.getElementById('hf-warning-title').innerText = `${startH}시 이후 파고 ${maxW}m 이상 예보`;
+            document.getElementById('hf-warning-desc').innerText =
+                `입수는 ${startH}시 이전에 마치시고, ${startH}~${(endH + 1) % 24}시는 초보자 입수를 권하지 않습니다.`;
+        } else {
+            warnBox.className = 'hf-warning-box ok';
+            document.getElementById('hf-warning-title').innerText = '오늘 하루 안전한 파고가 예상됩니다';
+            document.getElementById('hf-warning-desc').innerText = '다만 현장 기상 변화와 안전요원 안내를 함께 확인하세요.';
+        }
+    }
+
+    function renderWaveBarChart(hours, waveArr, nowIdx) {
+        const left = 36, right = 608, baseY = 115, topY = 20;
+        const n = hours.length;
+        const maxData = Math.max(...waveArr, 0.1);
+        const scaleMax = Math.max(2, Math.ceil(maxData * 1.15 * 2) / 2);
+        const usablePx = baseY - topY;
+        const slotW = (right - left) / n;
+        const barW = Math.min(16, slotW * 0.6);
+
+        let bars = '';
+        let xLabels = '';
+        let nowMarker = '';
+        hours.forEach((hr, i) => {
+            const v = waveArr[i];
+            const barH = Math.max(2, (v / scaleMax) * usablePx);
+            const x = left + i * slotW + (slotW - barW) / 2;
+            const y = baseY - barH;
+            const color = waveSeverityColor(v);
+            bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="3" fill="${color}"/>`;
+
+            const cx = left + i * slotW + slotW / 2;
+            if (hr % 3 === 0) {
+                xLabels += `<text x="${cx.toFixed(1)}" y="${baseY + 19}" text-anchor="middle" fill="#6d84a8" font-size="13">${String(hr).padStart(2, '0')}</text>`;
+            }
+            if (i === nowIdx) {
+                nowMarker = `
+                    <rect x="${(x - 1).toFixed(1)}" y="${topY - 2}" width="${(barW + 2).toFixed(1)}" height="${(baseY - topY + 2).toFixed(1)}" rx="4" fill="none" stroke="#5da3f5" stroke-width="1.5"/>
+                    <text x="${cx.toFixed(1)}" y="${topY - 8}" text-anchor="middle" fill="#5da3f5" font-size="13">지금</text>
+                `;
+            }
+        });
+
+        const midVal = (scaleMax / 2).toFixed(1);
+        const midY = baseY - usablePx / 2;
+
+        document.getElementById('hf-wave-svg').innerHTML = `
+            <line x1="${left}" y1="${baseY}" x2="${right}" y2="${baseY}" stroke="#2a3d5e" stroke-width="1"/>
+            <line x1="${left}" y1="${midY.toFixed(1)}" x2="${right}" y2="${midY.toFixed(1)}" stroke="#1e2f4a" stroke-width="1"/>
+            <line x1="${left}" y1="${topY}" x2="${right}" y2="${topY}" stroke="#1e2f4a" stroke-width="1"/>
+            <text x="${left - 6}" y="${baseY + 4}" text-anchor="end" fill="#6d84a8" font-size="13">0</text>
+            <text x="${left - 6}" y="${(midY + 4).toFixed(1)}" text-anchor="end" fill="#6d84a8" font-size="13">${midVal}m</text>
+            <text x="${left - 6}" y="${topY + 4}" text-anchor="end" fill="#6d84a8" font-size="13">${scaleMax}m</text>
+            ${bars}
+            ${nowMarker}
+            ${xLabels}
+        `;
+    }
+
+    function renderWindLineChart(hours, windArr, nowIdx) {
+        const left = 36, right = 608, baseY = 100, topY = 20;
+        const n = hours.length;
+        const maxData = Math.max(...windArr, 1);
+        const scaleMax = Math.max(10, Math.ceil(maxData * 1.15));
+        const usablePx = baseY - topY;
+        const slotW = (right - left) / n;
+
+        const pts = hours.map((hr, i) => {
+            const cx = left + i * slotW + slotW / 2;
+            const cy = baseY - (windArr[i] / scaleMax) * usablePx;
+            return { x: cx, y: cy };
+        });
+        const points = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+
+        let xLabels = '';
+        hours.forEach((hr, i) => {
+            if (hr % 3 === 0) {
+                xLabels += `<text x="${pts[i].x.toFixed(1)}" y="${baseY + 20}" text-anchor="middle" fill="#6d84a8" font-size="13">${String(hr).padStart(2, '0')}</text>`;
+            }
+        });
+
+        const midVal = Math.round(scaleMax / 2);
+        const midY = baseY - usablePx / 2;
+        const nowPoint = pts[nowIdx] || pts[0];
+
+        document.getElementById('hf-wind-svg').innerHTML = `
+            <line x1="${left}" y1="${baseY}" x2="${right}" y2="${baseY}" stroke="#2a3d5e" stroke-width="1"/>
+            <line x1="${left}" y1="${midY.toFixed(1)}" x2="${right}" y2="${midY.toFixed(1)}" stroke="#1e2f4a" stroke-width="1"/>
+            <line x1="${left}" y1="${topY}" x2="${right}" y2="${topY}" stroke="#1e2f4a" stroke-width="1"/>
+            <text x="${left - 6}" y="${baseY + 4}" text-anchor="end" fill="#6d84a8" font-size="13">0</text>
+            <text x="${left - 6}" y="${(midY + 4).toFixed(1)}" text-anchor="end" fill="#6d84a8" font-size="13">${midVal}</text>
+            <text x="${left - 6}" y="${topY + 4}" text-anchor="end" fill="#6d84a8" font-size="13">${scaleMax}</text>
+            <polyline fill="none" stroke="#3987e5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${points}"/>
+            <circle cx="${nowPoint.x.toFixed(1)}" cy="${nowPoint.y.toFixed(1)}" r="5" fill="#3987e5" stroke="#0d1b33" stroke-width="2"/>
+            ${xLabels}
+        `;
+    }
+
+    function renderHourlyGrid(hours, waveArr, windArr, nowIdx) {
+        const idxs = [];
+        hours.forEach((hr, i) => { if (hr % 3 === 0) idxs.push(i); });
+
+        let nearestIdx = idxs[0];
+        let minDiff = Infinity;
+        idxs.forEach(i => {
+            const diff = Math.abs(i - nowIdx);
+            if (diff < minDiff) { minDiff = diff; nearestIdx = i; }
+        });
+
+        let html = '';
+        idxs.forEach(i => {
+            const hr = hours[i];
+            const wave = waveArr[i];
+            const wind = windArr[i];
+            const isNow = (i === nearestIdx);
+            const color = waveSeverityColor(wave);
+            html += `
+                <div class="hf-cell${isNow ? ' now' : ''}">
+                    <div class="hf-cell-hour">${String(hr).padStart(2, '0')}시</div>
+                    <div class="hf-cell-wave">${wave.toFixed(1)}m</div>
+                    <div class="hf-cell-wind">${wind.toFixed(1)}</div>
+                    <div class="hf-cell-dot" style="background:${color}"></div>
+                </div>
+            `;
+        });
+        document.getElementById('hf-grid').innerHTML = html;
+    }
+
+    // WMO 날씨코드 -> 이모지 (Open-Meteo 표준 weathercode)
+    function weatherEmoji(code) {
+        if (code === 0) return '☀️';
+        if (code === 1 || code === 2) return '🌤️';
+        if (code === 3) return '☁️';
+        if (code === 45 || code === 48) return '🌫️';
+        if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return '🌧️';
+        if ([71, 73, 75, 77, 85, 86].includes(code)) return '❄️';
+        if ([95, 96, 99].includes(code)) return '⛈️';
+        return '🌥️';
+    }
+
+    function renderDailyForecast(dates, codes, windMaxArr, waveMaxArr) {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        let html = '';
+        dates.forEach((d, i) => {
+            const isToday = d === todayStr;
+            const dt = new Date(d + 'T00:00:00');
+            const md = `${dt.getMonth() + 1}/${dt.getDate()}`;
+            const dow = ['일', '월', '화', '수', '목', '금', '토'][dt.getDay()];
+            const wave = waveMaxArr[i] ?? 0;
+            const wind = windMaxArr[i] ?? 0;
+            const color = waveSeverityColor(wave);
+            html += `
+                <div class="hf-daily-cell${isToday ? ' today' : ''}">
+                    <div class="hf-daily-date">${isToday ? '오늘' : `${md}(${dow})`}</div>
+                    <div class="hf-daily-icon">${weatherEmoji(codes[i])}</div>
+                    <div class="hf-daily-wave">${wave.toFixed(1)}m</div>
+                    <div class="hf-daily-wind">${wind.toFixed(1)}m/s</div>
+                    <div class="hf-daily-dot" style="background:${color}"></div>
+                </div>
+            `;
+        });
+        document.getElementById('hf-daily-scroll').innerHTML = html;
+        document.getElementById('hf-daily-card').style.display = 'block';
+    }
+</script>
+</body>
+</html>
