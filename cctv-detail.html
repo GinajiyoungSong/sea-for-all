@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>실시간 CCTV - 모두의 바다</title>
+    <style>
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0; padding: 0;
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            min-height: 100vh;
+        }
+        .detail-header {
+            position: sticky; top: 0;
+            background: #1e293b;
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+        .detail-header-inner {
+            max-width: min(92vw, 700px); margin: 0 auto;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .back-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: rgba(255,255,255,0.08);
+            color: #e2e8f0;
+            border: 1px solid rgba(255,255,255,0.12);
+            padding: 8px 14px; border-radius: 20px;
+            font-size: 13px; font-weight: bold; cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .back-btn:hover { background: rgba(255,255,255,0.15); }
+        .header-title { font-size: 17px; font-weight: 800; }
+        .header-title .icon { margin-right: 6px; }
+
+        .container { max-width: min(92vw, 700px); margin: 0 auto; padding: 24px 16px 60px; }
+
+        .info-card {
+            background: #1e293b;
+            border-radius: 16px;
+            padding: 22px 20px;
+            border: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 20px;
+        }
+        .info-row {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .info-row:last-child { border-bottom: none; }
+        .info-label {
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: bold;
+            flex: 0 0 88px;
+        }
+        .info-value {
+            font-size: 15px;
+            color: #f8fafc;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+        .info-value .sub {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: normal;
+            margin-left: 6px;
+        }
+
+        .dist-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(56,189,248,0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(56,189,248,0.3);
+            margin-left: 6px;
+        }
+
+        .watch-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 16px;
+            border-radius: 14px;
+            text-decoration: none;
+            box-shadow: 0 6px 18px rgba(14,165,233,0.35);
+            transition: transform 0.15s ease;
+        }
+        .watch-btn:hover { transform: translateY(-1px); }
+
+        .notice-box {
+            margin-top: 18px;
+            background: rgba(245,158,11,0.1);
+            border: 1px solid rgba(245,158,11,0.25);
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 12px;
+            color: #fbbf24;
+            line-height: 1.6;
+        }
+
+        .source-footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="detail-header">
+        <div class="detail-header-inner">
+            <a class="back-btn" href="index.html">◀ 지도</a>
+            <div class="header-title"><span class="icon">🎥</span>실시간 CCTV</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="info-card">
+            <div class="info-row">
+                <div class="info-label">📍 조회한 스팟</div>
+                <div class="info-value" id="spot-name">-</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">🎥 CCTV 위치</div>
+                <div class="info-value" id="cctv-name">-</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">📏 거리</div>
+                <div class="info-value" id="cctv-dist">-</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">🏛️ 출처</div>
+                <div class="info-value" id="cctv-source">-</div>
+            </div>
+        </div>
+
+        <a class="watch-btn" id="watch-btn" href="#" target="_blank" rel="noopener">
+            ▶ 실시간 영상 보기
+        </a>
+
+        <div class="notice-box">
+            ⚠️ 이 CCTV는 조회하신 스팟에 있는 것이 아니라, <b>가장 가까운 월파감시 CCTV</b>입니다.
+            거리가 있는 만큼 실제 스팟의 실시간 상황과 다를 수 있으니 참고용으로만 확인해주세요.
+        </div>
+
+        <div class="source-footer">
+            영상은 각 지자체가 운영하는 재난안전 CCTV이며, 새 창(브라우저 확장 프로그램)에서 재생됩니다.
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const spot = params.get('spot') || '-';
+        const cctvName = params.get('cctvName') || '-';
+        const dist = params.get('dist') || '-';
+        const source = params.get('source') || '-';
+        const url = params.get('url') || '';
+
+        document.getElementById('spot-name').innerText = spot;
+        document.getElementById('cctv-name').innerText = cctvName;
+        document.getElementById('cctv-dist').innerHTML = `<span class="dist-badge">${dist} 떨어짐</span>`;
+        document.getElementById('cctv-source').innerText = source;
+
+        const watchBtn = document.getElementById('watch-btn');
+        if (url) {
+            watchBtn.href = url;
+        } else {
+            watchBtn.style.opacity = '0.5';
+            watchBtn.style.pointerEvents = 'none';
+            watchBtn.innerText = '영상 주소를 찾을 수 없습니다';
+        }
+
+        document.title = `${cctvName} 실시간 CCTV - 모두의 바다`;
+    </script>
+</body>
+</html>
