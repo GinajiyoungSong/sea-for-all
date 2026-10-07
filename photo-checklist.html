@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>제주 스팟 사진 체크리스트</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<style>
+:root{--bg:#f8fafc;--card:#fff;--ink:#0f172a;--mute:#64748b;--line:#e2e8f0;--acc:#0ea5e9;--ok:#16a34a}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1220;--card:#111a2e;--ink:#e5edf9;--mute:#94a3b8;--line:#22304a}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif}
+#app{display:flex;height:100vh;height:100dvh}
+#side{width:380px;max-width:42vw;display:flex;flex-direction:column;border-right:1px solid var(--line);background:var(--card);min-width:300px}
+#head{padding:12px 14px 8px;border-bottom:1px solid var(--line)}
+#head h1{font-size:16px;margin:0 0 8px}
+.prog{height:8px;background:var(--line);border-radius:6px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--ok);transition:width .25s}
+.progtxt{font-size:12px;color:var(--mute);margin-top:5px;display:flex;justify-content:space-between}
+#search{width:100%;margin-top:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:14px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 14px 0;white-space:nowrap}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;padding:5px 11px;font-size:12px;font-weight:700;border-radius:15px;border:1px solid var(--line);background:var(--bg);color:var(--mute);cursor:pointer;user-select:none}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chips.sub{padding-bottom:8px}.chip.sub.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.tools{display:flex;gap:6px;padding:0 14px 8px;font-size:12px;flex-wrap:wrap}
+.tools button{padding:5px 9px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);cursor:pointer;font-size:12px}
+.tools label{display:flex;align-items:center;gap:4px;color:var(--mute);margin-left:auto}
+#list{flex:1;overflow-y:auto}
+.item{display:flex;gap:10px;align-items:flex-start;padding:9px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.item:hover,.item.sel{background:color-mix(in srgb,var(--acc) 12%,transparent)}
+.item input{width:20px;height:20px;margin-top:2px;accent-color:var(--ok);flex:0 0 auto}
+.item .nm{font-size:14px;font-weight:700}
+.item.done .nm{text-decoration:line-through;color:var(--mute)}
+.item .meta{font-size:11px;color:var(--mute);margin-top:2px}
+.tag{display:inline-block;padding:0 6px;border-radius:8px;background:var(--line);margin-right:4px}
+.item textarea{display:none}
+#mapwrap{flex:1;position:relative}
+#map{position:absolute;inset:0;background:#111}
+.pin{background:none;border:none}
+.pin .dot{width:14px;height:14px;border-radius:50%;background:#ef4444;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.pin.done .dot{background:#16a34a}
+.pin .lbl{position:absolute;left:18px;top:-3px;white-space:nowrap;font-size:11px;font-weight:800;color:#1f2937;background:rgba(255,255,255,.94);padding:1px 7px;border-radius:9px;display:none;pointer-events:none}
+#map.labels .pin .lbl{display:block}
+.pin.sel .dot{width:20px;height:20px;margin:-3px;border-color:#fde047}
+.cl{background:none;border:none}
+.cl div{width:42px;height:42px;border-radius:50%;background:rgba(14,116,144,.93);color:#fff;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+.cl.done div{background:rgba(22,163,74,.93)}
+#toggle{display:none}
+@media (max-width:760px){
+ #app{flex-direction:column-reverse}
+ #side{width:100%;max-width:none;height:48%;min-width:0;border-right:none;border-top:1px solid var(--line)}
+ #mapwrap{height:52%;flex:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+ <aside id="side">
+  <div id="head">
+   <h1>📸 제주 스팟 사진 체크리스트</h1>
+   <div class="prog"><i id="pbar"></i></div>
+   <div class="progtxt"><span id="ptxt"></span><span id="pshown"></span></div>
+   <div class="progtxt"><span id="sync">☁️ 동기화 확인 중…</span><span id="sheetsync"></span></div>
+   <input id="search" type="search" placeholder="장소 이름·지역 검색">
+  </div>
+  <div class="chips" id="cats"></div>
+  <div class="chips sub" id="types"></div>
+  <div class="tools">
+   <button id="bUndone">미완료만</button>
+   
+   
+   
+   <label><input type="checkbox" id="cLabels" checked>이름</label>
+  </div>
+  <div id="list"></div>
+ </aside>
+ <div id="mapwrap"><div id="map"></div></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+/* 6.ALL_DB 내장 데이터: [diving,type,name,region,lat,lng,picture(1=사진 있음)] */
+const DB = [["SEA","어촌정주","가문동포구","제주시",33.4855,126.393,0],["SEA","지방어항","가파항(가파포구)","서귀포시",33.165,126.2726,0],["SEA","무역항","강정 크루즈터미널","서귀포시",33.2291,126.4852,0],["snorkle","spot","강정옛포구","",33.231688,126.491619,0],["SEA","소규모포구","강정포구","서귀포시",33.2274,126.4771,0],["SEA","비지정해변","검멀레해변","제주시",33.497,126.9672,0],["snorkle","beach","검멀레해변","",33.4973,126.9671,0],["snorkle","spot","계곡  정모시쉼터","",33.246512,126.571897,0],["snorkle","spot","계곡 강정천","",33.236502,126.485638,1],["snorkle","spot","계곡 돈내코","",33.300242,126.583158,0],["snorkle","spot","계곡 악근천","",33.233209,126.491243,0],["snorkle","spot","계곡 월대천","",33.49248,126.43605,0],["freediving","spot","고내리포구 옆 올레길","",33.4746,126.3518,0],["","개방어장","고내어촌계","제주시",33.4690282,126.3297002,0],["SEA","소규모포구","고내포구","제주시",33.4674,126.3378,0],["SEA","지방어항","고산항(차귀도포구)","제주시",33.3094,126.1648,0],["SEA","지정해변","곽지과물 해수욕장","제주시",33.4503,126.3056,0],["snorkle","beach","곽지과물 해수욕장","",33.4503,126.3056,0],["","개방어장","곽지어촌계","제주시",33.4517327,126.3043741,0],["freediving","port","구두미포구","",33.2362,126.5967,0],["SEA","소규모포구","구두미포구","서귀포시",33.2362,126.5967,0],["snorkle","port","구두미포구","",33.2362,126.5967,0],["SEA","소규모포구","구엄포구","제주시",33.4845,126.3762,0],["SEA","소규모포구","귀덕1리방파제(거북등대)","제주시",33.4464,126.2933,0],["","개방어장","귀덕1어촌계","제주시",33.4428947,126.2835173,0],["","개방어장","귀덕2어촌계","제주시",33.4363905,126.2741126,0],["freediving","spot","금능방파제 갯바위","",33.391929,126.227759,0],["snorkle","spot","금능방파제 갯바위","",33.391929,126.227759,0],["SEA","지정해변","금능해수욕장","제주시",33.3892,126.2351,1],["snorkle","beach","금능해수욕장","",33.3892,126.2351,1],["freediving","spot","금성연대(무인카페 앞)","",33.447852,126.299991,1],["snorkle","spot","금성연대(무인카페 앞)","",33.447852,126.299991,0],["SEA","지정해변","김녕 성세기 해수욕장","제주시",33.5579,126.7599,0],["snorkle","beach","김녕 성세기 해수욕장","",33.5579,126.7599,0],["SEA","비지정해변","김녕 세기알 해수욕장","제주시",33.5584,126.7557,0],["snorkle","beach","김녕 세기알 해수욕장","",33.5584,126.7557,0],["freediving","spot","김녕 세기알방파제","",33.55968,126.755125,1],["snorkle","spot","김녕 세기알방파제","제주시",33.55968,126.755125,1],["SEA","국가어항","김녕항","제주시",33.5585,126.7367,0],["물놀이담수풀장","spot","남원용암 해수풀장","",33.277646,126.71972,0],["SEA","소규모포구","남원포구","서귀포시",33.2763,126.7188,0],["SEA","소규모포구","내도포구(외도포구)","제주시",33.4964,126.4378,0],["SEA","비지정해변","논짓물","서귀포시",33.2371,126.3894,1],["snorkle","spot","논짓물","",33.2371,126.3894,1],["freediving","spot","닭머르해안","",33.536127,126.610589,1],["","개방어장","대서어촌계-1","제주시",33.9626462,126.288792,0],["","개방어장","대서어촌계-2","제주시",33.9671848,126.2834534,0],["SEA","소규모포구","대수포구","제주시",33.425,126.2632,0],["SEA","소규모포구","대평포구","서귀포시",33.2355,126.3609,0],["","개방어장","대포동어촌계-1(베튼게)","서귀포시",33.2385212,126.4440657,0],["","개방어장","대포동어촌계-2(지삿개)","서귀포시",33.2366483,126.4268859,0],["SEA","지방어항","대포포구","서귀포시",33.2385,126.4387,0],["SEA","소규모포구","덕돌포구","서귀포시",33.291188,126.760581,0],["","개방어장","도두어촌계","제주시",33.5113035,126.4833749,0],["SEA","국가어항","도두항","제주시",33.5092,126.4663,1],["freediving","spot","도두해안도로","제주시",33.51,126.4717,0],["freediving","spot","도리빨","",33.2346,126.4317,0],["SEA","비지정해변","도리빨","서귀포시",33.2346,126.4317,0],["snorkle","spot","도리빨","",33.2346,126.4317,0],["SEA","어촌정주","동귀방파제","제주시",33.4873,126.4065,0],["SEA","어촌정주","동복방파제","제주시",33.5554,126.7148,0],["snorkle","noport","동일리 싱계물 해안","",33.2205,126.2382,0],["","개방어장","동일리어촌계(쇠늑)","서귀포시",33.2311619,126.2378696,0],["SEA","소규모포구","동일리포구","서귀포시",33.2286,126.2397,0],["SEA","어촌정주","두모항(두모방파제)","제주시",33.3567,126.1799,0],["snorkle","noport","망장포(옛망장포)","",33.26,126.6396,0],["SEA","소규모포구","망장포구","서귀포시",33.2591,126.6398,0],["SEA","국가어항","모슬포항","서귀포시",33.21,126.2523,0],["freediving","spot","목지섬","",33.5606,126.7311,0],["","개방어장","묵어촌계","제주시",33.9540003,126.3126037,0],["freediving","spot","박수기정","",33.2361,126.3589,0],["snorkle","spot","법환둘레길(막숙)","",33.237,126.5154,0],["snorkle","spot","법환포구 노천탕","",33.2331,126.5143,0],["SEA","지방어항","법환포구(법환항)","서귀포시",33.2373,126.5157,0],["freediving","spot","법환포구둘레길(막숙)","",33.237,126.5154,0],["freediving","spot","보목 소천지","",33.5255,126.8611,0],["SEA","어촌정주","보목포구(보목항)","서귀포시",33.2384,126.6083,0],["freediving","noport","북촌리 등명대 앞바다","",33.5515,126.6934,0],["snorkle","noport","북촌리등명대 앞바다","",33.5515,126.6934,0],["SEA","어촌정주","북촌포구(북촌항)","제주시",33.5514,126.6939,0],["","개방어장","사계리어촌계","서귀포시",33.2313102,126.3114939,0],["SEA","지방어항","사계항","서귀포시",33.2283,126.3061,0],["SEA","비지정해변","사계해안","서귀포시",33.2231,126.2979,0],["snorkle","spot","사계해안","",33.2231,126.2979,0],["snorkle","spot","사계해안 락풀","서귀포시",33.2121,126.2954,0],["snorkle","spot","사계해안 락풀","",33.2125,126.294,0],["freediving","beach","사수알작지해변","",33.5102,126.4797,0],["snorkle","beach","사수알작지해변","",33.5102,126.4797,0],["freediving","spot","삼양3동항 오른쪽 방파제","",33.5265,126.5786,0],["SEA","지정해변","삼양검은모래 해수욕장","제주시",33.5264,126.5867,0],["snorkle","beach","삼양검은모래 해수욕장","",33.5264,126.5867,0],["","개방어장","상모리어촌계(들물첫)","서귀포시",33.1950681,126.2699799,0],["SEA","연안항","상추자항","상추자도",33.9646,126.3004,0],["freediving","spot","서건도 앞바다","",33.229162,126.498207,0],["snorkle","spot","서건도 앞바다","",33.2317,126.4989,0],["SEA","소규모포구","서귀포신흥포구","서귀포시",33.29806,126.76719,0],["SEA","어촌정주","서귀항","서귀포시",33.239303,126.5586,1],["SEA","비지정해변","서빈백사 해수욕장","제주시",33.5024,126.9432,0],["snorkle","beach","서빈백사 해수욕장","",33.5024,126.9432,0],["SEA","비지정해변","섭지코지 해안","서귀포시",33.4348,126.923,0],["snorkle","spot","섭지코지 해안","",33.4237,126.9296,0],["SEA","어촌정주","성산신양항","서귀포시",33.4281,126.9192,0],["SEA","연안항","성산포항","서귀포시",33.4729,126.9345,0],["SEA","지방어항","세화항","제주시",33.5294,126.8566,0],["freediving","spot","세화해변 옆 방파제","",33.528848,126.857844,0],["snorkle","spot","세화해변 옆 방파제","",33.528848,126.857844,0],["snorkle","비지정해변","세화해수욕장","제주시",33.5255,126.8611,1],["snorkle","beach","세화해수욕장","",33.5255,126.8611,1],["freediving","spot","소금막해변","",33.239096,126.324189,0],["snorkle","spot","소금막해변","",33.239096,126.324189,0],["snorkle","비지정해변","소천지","서귀포시",33.239,126.5914,0],["snorkle","spot","소천지","",33.239,126.5914,0],["SEA","어촌정주","송난포구","서귀포시",33.4787,126.9086,0],["SEA","소규모포구","송악산항(산이수동항)","서귀포시",33.2059,126.2911,0],["freediving","beach","수마포해안(수마포구)","",33.4607,126.9347,1],["SEA","비지정해변","수마포해안(수마포구)","서귀포시",33.4607,126.9347,1],["snorkle","beach","수마포해안(수마포구)","",33.4607,126.9347,1],["","개방어장","수원어촌계","제주시",33.4361046,126.26383,0],["","개방어장","시흥리어촌계(조개왓)","서귀포시",33.4801543,126.9040406,0],["","개방어장","신도리어촌계(새빌래·가물코지·기정물·맬캐)","서귀포시",33.2790002,126.1695941,0],["SEA","소규모포구","신도포구","서귀포시",33.2775,126.1697,0],["SEA","어촌정주","신산항","서귀포시",33.3819,126.8829,0],["freediving","spot","신양섭지코지","",33.4237,126.9296,0],["freediving","beach","신양섭지코지 해수욕장","",33.4348,126.923,0],["snorkle","beach","신양섭지코지 해수욕장","",33.4348,126.923,0],["SEA","지정해변","신양섭지해수욕장","서귀포시",33.4348,126.923,0],["","개방어장","신양어촌계-1","제주시",33.93566,126.3254368,0],["","개방어장","신양어촌계-2","제주시",33.9338263,126.3302219,0],["SEA","국가어항","신양항(하추자항)","하추자도",33.9435,126.329,0],["freediving","spot","신엄 고내리포구 올레길코스","",33.4732,126.3512,0],["snorkle","spot","신엄 해안도로","",33.4795,126.3582,0],["SEA","소규모포구","신엄포구(고내리포구)","제주시",33.4732,126.3512,0],["snorkle","port","신엄포구(고내리포구)","",33.4732,126.3512,0],["","개방어장","신창어촌계","제주시",33.3492611,126.18001,0],["SEA","지방어항","신창포구(신창방파제)","제주시",33.3485,126.1795,0],["SEA","지방어항","신천리방파제","서귀포시",33.3415,126.8577,0],["물놀이담수풀장","spot","신천올레 해수풀장","",33.3429,126.856,0],["freediving","noport","신흥리 방파제","",33.5501,126.6567,1],["snorkle","noport","신흥리 방파제","",33.5501,126.6567,1],["SEA","어촌정주","신흥항(국제리더스클럽)","제주시",33.5521,126.6523,0],["SEA","비지정해변","신흥해수욕장","제주시",33.55175,126.649,1],["snorkle","beach","신흥해수욕장","",33.55175,126.649,1],["freediving","beach","알작지","",33.4965,126.4395,0],["SEA","비지정해변","알작지","제주시",33.4965,126.4395,0],["snorkle","beach","알작지","",33.4965,126.4395,0],["SEA","연안항","애월항","제주시",33.4693,126.324,0],["freediving","spot","연대원담","",33.4939,126.4235,1],["snorkle","spot","연대원담","",33.4939,126.4235,1],["SEA","소규모포구","연대포구","제주시",33.4951,126.4273,0],["SEA","소규모포구","영락리방파제","서귀포시",33.2526,126.1937,0],["","개방어장","영흥어촌계","제주시",33.9570826,126.300909,0],["","개방어장","예초어촌계","제주시",33.9564083,126.3322663,0],["","개방어장","오조리어촌계(진모살)","서귀포시",33.472497,126.9158396,0],["물놀이담수풀장","spot","옥돔역 해수풀장","",33.285844,126.750077,0],["SEA","소규모포구","온평서포구(온평포구)","서귀포시",33.4028,126.9052,0],["SEA","소규모포구","옹포포구","제주시",33.4048,126.2485,1],["freediving","spot","용담 어영마을","",33.5204,126.4931,0],["SEA","어촌정주","용수리포구","제주시",33.3223,126.1649,0],["","개방어장","용수어촌계","제주시",33.3171641,126.1678689,0],["SEA","지방어항","용운동항","제주시",33.4371,126.2735,0],["","개방어장","용운어촌계","제주시",33.4363734,126.2720894,0],["SEA","어촌정주","우도 천진항","제주시",33.4915,126.9486,0],["","개방어장","월령어촌계","제주시",33.3752648,126.2128901,0],["freediving","port","월령포구","",33.3785,126.2163,0],["SEA","소규모포구","월령포구","제주시",33.3785,126.2163,0],["snorkle","port","월령포구","",33.3785,126.2163,0],["freediving","beach","월령해변","",33.375351,126.213066,1],["SEA","비지정해변","월령해변","제주시",33.375351,126.213066,1],["snorkle","beach","월령해변","",33.375351,126.213066,1],["SEA","지정해변","월정리해수욕장","제주시",33.5558,126.7966,1],["snorkle","beach","월정리해수욕장","",33.5558,126.7966,1],["SEA","어촌정주","월정포구","제주시",33.5582,126.7956,0],["","개방어장","위미2리어촌계(지꾸네)","서귀포시",33.2704395,126.6796442,0],["SEA","국가어항","위미항","서귀포시",33.2704,126.6615,0],["snorkle","beach","이호테우 해수욕장","",33.4981,126.4533,1],["SEA","지정해변","이호테우해수욕장","제주시",33.4981,126.4533,1],["","개방어장","일과2리어촌계(막은개)","서귀포시",33.2399861,126.2258721,0],["snorkle","spot","일과리 돌고래포인트","",33.2434,126.2163,0],["freediving","spot","자구리 해안","",33.2435,126.5684,0],["snorkle","spot","자구리 해안","",33.2435,126.5684,0],["SEA","무역항","제주항 국제여객터미널","제주시",33.5215,126.5457,0],["SEA","지방어항","조천항(조천방파제)","제주시",33.5412,126.6355,0],["SEA","비지정해변","종달 해수욕장","제주시",33.513,126.8993,0],["snorkle","beach","종달 해수욕장","",33.513,126.8993,0],["","개방어장","종달어촌계","제주시",33.4868895,126.9044255,0],["SEA","지방어항","종달항(두문포항)","제주시",33.4962,126.9132,0],["SEA","지정해변","중문색달해수욕장","서귀포시",33.2451,126.4121,0],["snorkle","beach","중문색달해수욕장","",33.2451,126.4121,0],["snorkle","spot","청굴물","",33.558125,126.75147,0],["freediving","beach","추자모진이 해수욕장","",33.9456,126.3349,0],["SEA","비지정해변","추자모진이 해수욕장","제주시",33.9456,126.3349,0],["snorkle","beach","추자모진이 해수욕장","",33.9456,126.3349,0],["freediving","beach","코난비치","",33.5575,126.8112,0],["SEA","비지정해변","코난비치","제주시",33.5575,126.8112,0],["snorkle","beach","코난비치","",33.5575,126.8112,0],["snorkle","spot","태웃개","",33.269617,126.69135,0],["SEA","지방어항","태흥2리포구","서귀포시",33.2874,126.7494,0],["freediving","spot","태흥3리 소코지","",33.27365,126.705906,0],["snorkle","spot","태흥3리 소코지","",33.27365,126.705906,0],["snorkle","spot","태흥리 해안","",33.278467,126.723153,0],["SEA","소규모포구","토산포구","서귀포시",33.3041,126.788,0],["snorkle","port","토산포구","",33.3041,126.788,0],["freediving","port","토산포구","",33.3041,126.788,0],["freediving","noport","판포포구","",33.365329,126.199715,1],["SEA","소규모포구","판포포구","제주시",33.365329,126.199715,1],["snorkle","noport","판포포구","",33.365329,126.199715,1],["","개방어장","평대어촌계","제주시",33.5339671,126.8413904,0],["freediving","beach","평대해변","",33.53361,126.8412,1],["SEA","비지정해변","평대해변","제주시",33.53361,126.8412,1],["snorkle","beach","평대해변","",33.53361,126.8412,1],["SEA","지방어항","표선항","서귀포시",33.325835,126.845987,0],["SEA","지정해변","표선해비치 해수욕장","서귀포시",33.327722,126.837949,1],["snorkle","beach","표선해비치 해수욕장","",33.327722,126.837949,1],["freediving","beach","하고수동 해수욕장","",33.514071,126.957803,0],["SEA","비지정해변","하고수동 해수욕장","제주시",33.514071,126.957803,0],["snorkle","beach","하고수동 해수욕장","",33.514071,126.957803,0],["SEA","지방어항","하귀포구","제주시",33.4852,126.402,1],["SEA","비지정해변","하도해수욕장","제주시",33.518195,126.902067,0],["freediving","beach","하도해수욕장","",33.518195,126.902067,0],["snorkle","beach","하도해수욕장","",33.518195,126.902067,0],["","개방어장","하모리어촌계(윤진이)","서귀포시",33.2122225,126.2534027,0],["SEA","비지정해변","하모해수욕장","서귀포시",33.210852,126.260413,0],["snorkle","beach","하모해수욕장","",33.210852,126.260413,0],["SEA","어촌정주","하우목동항","제주시",33.509228,126.942466,0],["SEA","비지정해변","하효쇠소깍해변","서귀포시",33.25249167,126.6238944,0],["snorkle","beach","하효쇠소깍해변","",33.25249167,126.6238944,0],["SEA","지방어항","하효항","서귀포시",33.2499,126.6219,0],["freediving","beach","한담해변","",33.462049,126.310023,0],["SEA","비지정해변","한담해변","제주시",33.462049,126.310023,0],["snorkle","beach","한담해변","",33.462049,126.310023,0],["freediving","noport","한동리 옛포구 해안","",33.5435,126.8155,0],["snorkle","noport","한동리 옛포구 해안","",33.5435,126.8155,0],["","개방어장","한동어촌계","제주시",33.5434715,126.8303888,0],["","개방어장","한림어촌계","제주시",33.4183767,126.2576279,0],["SEA","연안항","한림항","제주시",33.419,126.2625,0],["","개방어장","한수어촌계","제주시",33.4209602,126.257552,0],["freediving","spot","함덕 서우봉","",33.549478,126.67399,0],["SEA","비지정해변","함덕 서우봉해변","제주시",33.544766,126.674251,0],["snorkle","beach","함덕 서우봉해변","",33.544766,126.674251,0],["","개방어장","함덕어촌계","제주시",33.5472941,126.6737855,0],["SEA","지정해변","함덕해수욕장","제주시",33.543,126.6692,0],["snorkle","beach","함덕해수욕장","",33.543,126.6692,0],["","개방어장","행원어촌계","제주시",33.5583844,126.810657,0],["SEA","소규모포구","행원포구","제주시",33.556747,126.807139,0],["snorkle","beach","협재 해수욕장","",33.394,126.2397,0],["SEA","지정해변","협재해수욕장","제주시",33.394,126.2397,0],["SEA","지방어항","화북포구(화북항)","제주시",33.526343,126.564726,0],["freediving","beach","화순금모래 해수욕장","",33.2359,126.3195,0],["snorkle","beach","화순금모래 해수욕장","",33.2359,126.3195,0],["SEA","지정해변","화순금모래해수욕장","서귀포시",33.2359,126.3195,0],["물놀이담수풀장","spot","화순담수풀장","",33.240917,126.331577,0],["SEA","비지정해변","황우치해안","서귀포시",33.2368,126.3178,0],["snorkle","spot","황우치해안","",33.2368,126.3178,0]];
+const CATS=[{k:'snorkle',l:'스노클링'},{k:'freediving',l:'프리다이빙'}];
+const TL={beach:'해변',spot:'스팟',noport:'기능상실 포구',port:'포구'};
+const tl=t=>TL[t]||t, ck=d=>(d||'').trim()||'__haeru';
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+
+/* 장소 병합 (이름 기준) */
+/* ===== 장소 데이터: 구글드라이브의 엑셀(.xlsx) 6번 탭 → 실패 시 아래 내장 데이터(DB) 사용 =====
+ * Apps Script(action=photo_places)가 드라이브의 엑셀 파일을 직접 읽어 옵니다.
+ * 엑셀을 수정해서 같은 파일에 "새 버전 업로드"하면, 페이지를 새로고침할 때 반영됩니다.
+ * 컬럼: diving, picture(사진 있음 체크), type, name, region, address, latitude, longitude */
+let byName=new Map(), places=[];
+function buildPlaces(rows){
+  byName=new Map();
+  rows.forEach(([d,t,n,rg,la,lo,pic])=>{
+    n=(n||'').trim(); if(!n||isNaN(la)||isNaN(lo)) return;
+    let p=byName.get(n);
+    if(!p){p={name:n,region:rg,lat:la,lng:lo,pic:0,cats:new Set(),pairs:new Set()};byName.set(n,p)}
+    if(pic)p.pic=1; const c=ck(d); p.cats.add(c); p.pairs.add(c+'||'+t);
+  });
+  places=[...byName.values()].sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+}
+buildPlaces(DB);
+
+/* ===== 구글드라이브 사진 폴더 자동 체크 =====
+ * 드라이브 폴더 안의 하위 폴더 이름이 장소 이름과 같으면(띄어쓰기·괄호·"마을어장" 무시) 자동 완료 처리.
+ * PHOTO_FOLDER_URL 에 Apps Script 웹앱 주소(photo-folders.gs 배포)를 넣으면 페이지를 열 때마다 드라이브를 직접 읽습니다.
+ * 비워두거나 실패하면 아래 스냅샷(2026-10-06 기준 폴더 목록)을 씁니다. */
+const PHOTO_API='https://script.google.com/macros/s/AKfycbxsFQE8atcqCH7mO8U8jM_sjRHW-Zulsh1JF_Ehpf7jL6q7SCxJPkmZWoHDYfLAIyYB/exec';
+const PHOTO_FOLDER_URL=PHOTO_API+'?action=photo_folders';
+let FOLDERS=["계곡강정천", "광치기해변(제거용)", "평대해변", "김녕세기알방파제", "닭머르해안", "옹포포구 마을어장", "세화해변 옆 방파제", "세화해수욕장", "서귀항", "김녕세기알해수욕장", "금성연대", "청굴물", "금능해수욕장", "한국관광공사 이미지-사용신청함", "월평포구", "하귀포구 마을어장", "사수알작지", "도두항", "논짓물", "신흥해수욕장", "월정리해수욕장", "신흥리 방파제", "수마포해안", "표선해비치해수욕장", "이호테우해수욕장", "함덕해수욕장", "연대원담", "월령해변", "판포포구"];
+try{const c=JSON.parse(localStorage.getItem('photo-folders-cache')||'null');if(Array.isArray(c)&&c.length)FOLDERS=c}catch(e){}
+const nz=x=>String(x).replace(/[\s·\-]/g,'');
+const isIgnoredFolder=f=>/제거용|사용신청함/.test(f);
+function folderMatches(place,f){
+  if(isIgnoredFolder(f))return false;
+  const k=nz(f.replace(/\(.*?\)/g,'').replace(/마을어장/g,''));
+  if(k.length<2)return false;
+  const full=nz(place), bare=nz(place.replace(/\(.*?\)/g,''));
+  return full===nz(f)||bare===k||full.startsWith(k);
+}
+function applyFolders(){
+  places.forEach(p=>{p.fol=FOLDERS.some(f=>folderMatches(p.name,f))?1:0});
+}
+
+/* 완료 상태 저장 (브라우저 localStorage, 실패해도 동작) */
+const KEY='jeju-photo-checklist-v2';
+/* 시트 picture 체크(사진 있음)는 기본 완료. 직접 바꾼 것만 ov에 저장 {이름:true/false} */
+let ov={};
+try{ov=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+try{(JSON.parse(localStorage.getItem('jeju-photo-checklist-v1')||'[]')).forEach(n=>{if(!(n in ov))ov[n]=true})}catch(e){}
+const isDone=n=>{if(n in ov)return ov[n];const p=byName.get(n);return !!(p.pic||p.fol)};
+const done={has:isDone};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(ov))}catch(e){}};
+/* 기기 간 동기화: 체크할 때마다 서버(Apps Script)에도 저장. 실패해도 이 기기 저장은 유지됨 */
+function setSync(msg,bad){const e=document.getElementById('sync');if(e){e.textContent=msg;e.style.color=bad?'#dc2626':'var(--mute)'}}
+function apiGet(q){return fetch(PHOTO_API+'?'+q+'&_='+Date.now()).then(r=>r.json())}
+function pushOne(n){setSync('☁️ 저장 중…');apiGet('action=photo_set&name='+encodeURIComponent(n)+'&v='+(ov[n]?1:0)).then(j=>setSync(j.ok?'☁️ 동기화됨':'☁️ 저장 실패(이 기기에만 저장)',!j.ok)).catch(()=>setSync('☁️ 오프라인(이 기기에만 저장)',true))}
+function pushAll(){setSync('☁️ 저장 중…');apiGet('action=photo_put&data='+encodeURIComponent(JSON.stringify(ov))).then(j=>setSync(j.ok?'☁️ 동기화됨':'☁️ 저장 실패',!j.ok)).catch(()=>setSync('☁️ 오프라인(이 기기에만 저장)',true))}
+function pullState(){
+  apiGet('action=photo_state').then(j=>{
+    if(!j||!j.ok)throw 0;
+    const server=j.ov||{};let localOnly=false;
+    Object.keys(ov).forEach(k=>{if(!(k in server))localOnly=true});
+    ov=Object.assign({},ov,server);save();refresh(true);
+    if(localOnly)pushAll();else setSync('☁️ 동기화됨');
+  }).catch(()=>setSync('☁️ 서버 연결 안 됨(이 기기에만 저장)',true));
+}
+
+let selCat='__all',selType='__all',onlyUndone=false,q='',selName=null;
+
+/* 지도: 구글 위성지도만 */
+const map=L.map('map',{zoomControl:true}).setView([33.3798,126.5312],10);
+L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',{maxZoom:20,attribution:'© Google Map Satellite'}).addTo(map);
+const cluster=L.markerClusterGroup({maxClusterRadius:50,disableClusteringAtZoom:14,showCoverageOnHover:false,
+  iconCreateFunction:c=>{const ms=c.getAllChildMarkers();const all=ms.every(m=>done.has(m._pl.name));
+   return L.divIcon({html:`<div>${ms.length}</div>`,className:'cl'+(all?' done':''),iconSize:[42,42]})}});
+map.addLayer(cluster);
+
+function icon(p){return L.divIcon({className:'pin'+(done.has(p.name)?' done':'')+(selName===p.name?' sel':''),
+  html:`<div class="dot"></div><div class="lbl">${esc(p.name)}</div>`,iconSize:[14,14],iconAnchor:[7,7]})}
+function makeMarkers(){
+  cluster.clearLayers();
+  places.forEach(p=>{p.marker=L.marker([p.lat,p.lng],{icon:icon(p)});p.marker._pl=p;
+    p.marker.on('click',()=>{select(p.name,false);document.querySelector('.item.sel')?.scrollIntoView({block:'center'})})});
+}
+makeMarkers();
+
+function match(p){
+  if(onlyUndone&&done.has(p.name))return false;
+  if(q&&!(p.name+' '+(p.region||'')).toLowerCase().includes(q))return false;
+  for(const pr of p.pairs){const [c,t]=pr.split('||');
+    if((selCat==='__all'||c===selCat)&&(selType==='__all'||t===selType))return true}
+  return false;
+}
+function renderChips(){
+  const cb=document.getElementById('cats');cb.innerHTML='';
+  [{k:'__all',l:'전체'},...CATS].forEach(c=>{
+    const n=places.filter(p=>c.k==='__all'||p.cats.has(c.k)).length; if(!n&&c.k!=='__all')return;
+    const e=document.createElement('div');e.className='chip'+(selCat===c.k?' on':'');e.textContent=`${c.l} ${n}`;
+    e.onclick=()=>{selCat=c.k;selType='__all';refresh()};cb.appendChild(e)});
+  const tc=new Map();
+  places.forEach(p=>p.pairs.forEach(pr=>{const [c,t]=pr.split('||');if(selCat==='__all'||c===selCat){(tc.get(t)||tc.set(t,new Set()).get(t)).add(p.name)}}));
+  const tb=document.getElementById('types');tb.innerHTML='';
+  const a=document.createElement('div');a.className='chip sub'+(selType==='__all'?' on':'');a.textContent='모든 유형';a.onclick=()=>{selType='__all';refresh()};tb.appendChild(a);
+  [...tc.entries()].sort((x,y)=>y[1].size-x[1].size).forEach(([t,s])=>{
+    const e=document.createElement('div');e.className='chip sub'+(selType===t?' on':'');e.textContent=`${tl(t)} ${s.size}`;
+    e.onclick=()=>{selType=t;refresh()};tb.appendChild(e)});
+}
+function renderList(vis){
+  const L=document.getElementById('list');L.innerHTML='';
+  vis.forEach(p=>{
+    const d=document.createElement('div');d.className='item'+(done.has(p.name)?' done':'')+(selName===p.name?' sel':'');
+    const catTags=((p.pic||p.fol)?`<span class="tag" style="background:#dcfce7;color:#166534">📷 사진 있음${p.fol&&!p.pic?' (드라이브)':''}</span>`:'')+CATS.filter(c=>p.cats.has(c.k)).map(c=>`<span class="tag">${c.l}</span>`).join('');
+    d.innerHTML=`<input type="checkbox" ${done.has(p.name)?'checked':''}><div><div class="nm">${esc(p.name)}</div><div class="meta">${catTags}${esc(p.region||'')}</div></div>`;
+    d.querySelector('input').onclick=e=>{e.stopPropagation();toggle(p.name)};
+    d.onclick=()=>select(p.name,true);
+    L.appendChild(d)});
+}
+function toggle(n){ov[n]=!isDone(n);save();refresh(true);pushOne(n)}
+function select(n,fly){selName=n;const p=byName.get(n);
+  if(fly){map.setView([p.lat,p.lng],Math.max(map.getZoom(),15),{animate:true})}
+  refresh(true)}
+function updLabels(){document.getElementById('map').classList.toggle('labels',document.getElementById('cLabels').checked&&(map.getZoom()>=13))}
+function refresh(keepScroll){
+  const vis=places.filter(match);
+  const st=document.getElementById('list').scrollTop;
+  renderChips();renderList(vis);
+  if(keepScroll)document.getElementById('list').scrollTop=st;
+  cluster.clearLayers();
+  vis.forEach(p=>{p.marker.setIcon(icon(p));cluster.addLayer(p.marker)});
+  const total=places.length,dn=places.filter(p=>isDone(p.name)).length;
+  document.getElementById('pbar').style.width=(dn/total*100)+'%';
+  document.getElementById('ptxt').textContent=`완료 ${dn} / ${total}`;
+  document.getElementById('pshown').textContent=`목록 ${vis.length}개`;
+  document.getElementById('bUndone').style.background=onlyUndone?'var(--acc)':'';
+  document.getElementById('bUndone').style.color=onlyUndone?'#fff':'';
+  updLabels();
+}
+document.getElementById('search').oninput=e=>{q=e.target.value.trim().toLowerCase();refresh()};
+document.getElementById('bUndone').onclick=()=>{onlyUndone=!onlyUndone;refresh()};
+document.getElementById('cLabels').onchange=updLabels;
+map.on('zoomend',updLabels);
+applyFolders();
+refresh();
+pullState();
+function setSheetStatus(msg,bad){const e=document.getElementById('sheetsync');if(e){e.textContent=msg;e.style.color=bad?'#dc2626':'var(--mute)'}}
+const USE_DRIVE_XLSX=true;    // true 로 바꾸고 Code.gs(photo_places)를 배포하면 엑셀을 실시간으로 읽음
+if(!USE_DRIVE_XLSX){setSheetStatus('📄 내장 장소 목록 사용 중')}else{
+setSheetStatus('📄 드라이브 엑셀 불러오는 중…');
+apiGet('action=photo_places').then(j=>{
+  if(!j||!j.ok||!Array.isArray(j.rows)||!j.rows.length)throw new Error('bad');
+  buildPlaces(j.rows);makeMarkers();applyFolders();refresh(true);
+  setSheetStatus('📄 드라이브 엑셀 연동됨 ('+places.length+'곳)');
+}).catch(()=>setSheetStatus('📄 엑셀 연결 실패 → 내장 데이터 사용',true));
+}
+if(PHOTO_FOLDER_URL){
+  fetch(PHOTO_FOLDER_URL).then(r=>r.json()).then(j=>{
+    const arr=(j.folders||[]).map(x=>typeof x==='string'?x:x.name).filter(Boolean);
+    if(arr.length){FOLDERS=arr;try{localStorage.setItem('photo-folders-cache',JSON.stringify(arr))}catch(e){}applyFolders();refresh(true)}
+  }).catch(()=>{});
+}
+</script>
+</body>
+</html>
